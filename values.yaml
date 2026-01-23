@@ -1,0 +1,145 @@
+## Jenkins Controller 
+controller:
+  jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+  image:
+    registry: docker.io
+    repository: jenkins/jenkins
+    tag: 2.528.3-jdk21
+    pullPolicy: IfNotPresent
+  serviceType: ClusterIP
+  ## IMPORTANT: disable inbound TCP agents correctly
+  agentListenerEnabled: false
+  admin:
+    existingSecret: jenkins-admin-credentials
+    userKey: jenkins-admin-user
+    passwordKey: jenkins-admin-password
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  persistence:
+    enabled: true
+    size: 10Gi
+  runAsUser: 1000
+  fsGroup: 1000
+  installPluginsTimeout: 20
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+    - credentials
+    - docker-workflow
+    - blueocean
+    - job-dsl
+  startupProbe:
+    failureThreshold: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+  livenessProbe:
+    failureThreshold: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+  readinessProbe:
+    failureThreshold: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+  ## Jenkins Configuration as Code (Kubernetes Cloud)
+  JCasC:
+    enabled: true
+    configScripts:
+      kubernetes-cloud.yaml: |
+        jenkins:
+          clouds:
+            - kubernetes:
+                name: "kubernetes"
+                namespace: "jenkins"
+                jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+                containerCap: 10
+                templates:
+                  - name: "buildkit-agent"
+                    label: "buildkit-agent"
+                    serviceAccount: "jenkins"
+                    idleMinutes: 5
+                    volumes:
+                      - emptyDirVolume:
+                          mountPath: "/run/buildkit"
+                      - emptyDirVolume:
+                          mountPath: "/home/jenkins/agent"
+                    containers:
+                      - name: "jnlp"
+                        image: "jenkins/inbound-agent:latest"
+                        workingDir: "/home/jenkins/agent"
+                      - name: "buildkitd"
+                        image: "moby/buildkit:v0.19.0"
+                        privileged: true
+                        args: "--addr unix:///run/buildkit/buildkitd.sock"
+                      - name: "buildctl"
+                        image: "moby/buildkit:v0.19.0"
+                        command: "sleep"
+                        args: "infinity"
+                        workingDir: "/home/jenkins/agent"
+      jobs.yaml: |
+        jobs:
+          - script: >
+              pipelineJob('CI Pipeline') {
+                definition {
+                  cps {
+                    script("""
+                      pipeline {
+                        agent {
+                          kubernetes {
+                            label 'buildkit-agent'
+                            defaultContainer 'jnlp'
+                          }
+                        }
+                        stages {
+                          stage('Checkout') {
+                            steps {
+                              git branch: 'main', url: 'https://github.com/sagi-l/simple_flask_app.git'
+                            }
+                          }
+                          stage('Verify BuildKit') {
+                            steps {
+                              container('buildctl') {
+                                sh 'buildctl --addr unix:///run/buildkit/buildkitd.sock debug workers'
+                              }
+                            }
+                          }
+                          stage('Build image (NO PUSH)') {
+                            steps {
+                              container('buildctl') {
+                                sh "buildctl --addr unix:///run/buildkit/buildkitd.sock build --frontend dockerfile.v0 --local context=. --local dockerfile=. --output type=image,name=simple-flask:dev,push=false"
+                              }
+                            }
+                          }
+                        }
+                        post {
+                          success {
+                            echo 'Build finished successfully!'
+                          }
+                        }
+                      }
+                    """.stripIndent())
+                    sandbox(true)
+                  }
+                }
+              }
+## Agent (WebSocket mode)
+agent:
+  enabled: true
+  websocket: true
+  image:
+    repository: jenkins/inbound-agent
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  workingDir: "/home/jenkins/agent"
+## RBAC & Service Account
+rbac:
+  create: true
+serviceAccount:
+  create: true
+  name: jenkins
