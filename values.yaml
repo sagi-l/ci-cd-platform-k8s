@@ -7,12 +7,15 @@ controller:
     tag: 2.528.3-jdk21
     pullPolicy: IfNotPresent
   serviceType: ClusterIP
+
   ## IMPORTANT: disable inbound TCP agents correctly
   agentListenerEnabled: false
+
   admin:
     existingSecret: jenkins-admin-credentials
     userKey: jenkins-admin-user
     passwordKey: jenkins-admin-password
+
   resources:
     requests:
       cpu: "1000m"
@@ -20,11 +23,14 @@ controller:
     limits:
       cpu: "2"
       memory: "4Gi"
+
   persistence:
     enabled: true
     size: 10Gi
+
   runAsUser: 1000
   fsGroup: 1000
+
   installPluginsTimeout: 20
   installPlugins:
     - kubernetes
@@ -35,6 +41,7 @@ controller:
     - docker-workflow
     - blueocean
     - job-dsl
+
   startupProbe:
     failureThreshold: 30
     periodSeconds: 10
@@ -47,6 +54,7 @@ controller:
     failureThreshold: 10
     periodSeconds: 10
     timeoutSeconds: 5
+
   ## Jenkins Configuration as Code (Kubernetes Cloud)
   JCasC:
     enabled: true
@@ -56,12 +64,13 @@ controller:
           clouds:
             - kubernetes:
                 name: "kubernetes"
-                namespace: "jenkins"
+                namespace: "jenkins-agents"
                 jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
                 containerCap: 10
                 templates:
                   - name: "buildkit-agent"
                     label: "buildkit-agent"
+                    namespace: "jenkins-agents"
                     serviceAccount: "jenkins"
                     idleMinutes: 5
                     volumes:
@@ -82,6 +91,7 @@ controller:
                         command: "sleep"
                         args: "infinity"
                         workingDir: "/home/jenkins/agent"
+
       jobs.yaml: |
         jobs:
           - script: >
@@ -128,6 +138,7 @@ controller:
                   }
                 }
               }
+
 ## Agent (WebSocket mode)
 agent:
   enabled: true
@@ -137,9 +148,11 @@ agent:
     tag: "latest"
     pullPolicy: IfNotPresent
   workingDir: "/home/jenkins/agent"
+
 ## RBAC & Service Account
 rbac:
   create: true
+
 serviceAccount:
   create: true
   name: jenkins
