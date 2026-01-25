@@ -1,4 +1,4 @@
-## Jenkins Controller 
+## Jenkins Controller
 controller:
   jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
   image:
@@ -55,7 +55,7 @@ controller:
     periodSeconds: 10
     timeoutSeconds: 5
 
-  ## Jenkins Configuration as Code (Kubernetes Cloud)
+  ## Jenkins Configuration as Code
   JCasC:
     enabled: true
     configScripts:
@@ -67,9 +67,10 @@ controller:
                 namespace: "jenkins-agents"
                 jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
                 containerCap: 10
+                waitForPodSec: 120
+                # #podRetention: never
                 templates:
                   - name: "buildkit-agent"
-                    label: "buildkit-agent"
                     namespace: "jenkins-agents"
                     serviceAccount: "jenkins"
                     idleMinutes: 5
@@ -102,9 +103,14 @@ controller:
                       pipeline {
                         agent {
                           kubernetes {
-                            label 'buildkit-agent'
+                            cloud 'kubernetes'
+                            inheritFrom 'buildkit-agent'
+                            namespace 'jenkins-agents'
                             defaultContainer 'jnlp'
                           }
+                        }
+                        options {
+                          timeout(time: 30, unit: 'MINUTES')
                         }
                         stages {
                           stage('Checkout') {
@@ -155,4 +161,3 @@ rbac:
 
 serviceAccount:
   create: true
-  name: jenkins
