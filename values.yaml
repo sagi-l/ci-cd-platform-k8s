@@ -130,7 +130,7 @@ controller:
                       username: ${dockerhub-creds-username}
                       password: ${dockerhub-creds-password}
                       description: "Docker Hub credentials"
-              - usernamePassword:
+                  - usernamePassword:
                       scope: GLOBAL
                       id: "github-creds"
                       username: ${github-creds-username}
