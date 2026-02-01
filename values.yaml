@@ -16,6 +16,13 @@ controller:
     userKey: jenkins-admin-user
     passwordKey: jenkins-admin-password
 
+  ## Mount the dockerhub secret into Jenkins
+  additionalExistingSecrets:
+    - name: dockerhub-creds
+      keyName: username
+    - name: dockerhub-creds
+      keyName: password
+
   resources:
     requests:
       cpu: "1000m"
@@ -40,6 +47,7 @@ controller:
     - credentials
     - blueocean
     - job-dsl
+    - github
       
   startupProbe:
     httpGet:
@@ -107,54 +115,36 @@ controller:
                         args: "infinity"
                         workingDir: "/home/jenkins/agent"
 
+      credentials.yaml: |
+        credentials:
+          system:
+            domainCredentials:
+              - credentials:
+                  - usernamePassword:
+                      scope: GLOBAL
+                      id: "dockerhub-creds"
+                      username: ${dockerhub-creds-username}
+                      password: ${dockerhub-creds-password}
+                      description: "Docker Hub credentials"
+
       jobs.yaml: |
         jobs:
           - script: >
-              pipelineJob('CI Pipeline') {
+              pipelineJob('simple-flask-ci') {
+                triggers {
+                  githubPush()
+                }
                 definition {
-                  cps {
-                    script("""
-                      pipeline {
-                        agent {
-                          kubernetes {
-                            cloud 'kubernetes'
-                            inheritFrom 'buildkit-agent'
-                            namespace 'jenkins-agents'
-                            defaultContainer 'jnlp'
-                          }
+                  cpsScm {
+                    scm {
+                      git {
+                        remote {
+                          url('https://github.com/sagi-l/simple_flask_app.git')
                         }
-                        options {
-                          timeout(time: 30, unit: 'MINUTES')
-                        }
-                        stages {
-                          stage('Checkout') {
-                            steps {
-                              git branch: 'main', url: 'https://github.com/sagi-l/simple_flask_app.git'
-                            }
-                          }
-                          stage('Verify BuildKit') {
-                            steps {
-                              container('buildctl') {
-                                sh 'buildctl --addr unix:///run/buildkit/buildkitd.sock debug workers'
-                              }
-                            }
-                          }
-                          stage('Build image (NO PUSH)') {
-                            steps {
-                              container('buildctl') {
-                                sh "buildctl --addr unix:///run/buildkit/buildkitd.sock build --frontend dockerfile.v0 --local context=. --local dockerfile=. --output type=image,name=simple-flask:dev,push=false"
-                              }
-                            }
-                          }
-                        }
-                        post {
-                          success {
-                            echo 'Build finished successfully!'
-                          }
-                        }
+                        branch('main')
                       }
-                    """.stripIndent())
-                    sandbox(true)
+                    }
+                    scriptPath('Jenkinsfile')
                   }
                 }
               }
