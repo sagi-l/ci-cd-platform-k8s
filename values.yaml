@@ -22,6 +22,10 @@ controller:
       keyName: username
     - name: dockerhub-creds
       keyName: password
+    - name: github-creds
+      keyName: username
+    - name: github-creds
+      keyName: password
 
   resources:
     requests:
