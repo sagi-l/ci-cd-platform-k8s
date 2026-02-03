@@ -52,7 +52,7 @@ controller:
     - blueocean
     - job-dsl
     - github
-    - artifactId
+    - pipeline-stage-view 
     
   startupProbe:
     httpGet:
