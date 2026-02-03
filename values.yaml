@@ -52,7 +52,7 @@ controller:
     - blueocean
     - job-dsl
     - github
-      
+
   startupProbe:
     httpGet:
       path: /
@@ -139,7 +139,7 @@ controller:
       jobs.yaml: |
         jobs:
           - script: >
-              pipelineJob('simple-flask-ci') {
+              pipelineJob('ci-dashboard') {
                 triggers {
                   githubPush()
                 }
@@ -148,7 +148,7 @@ controller:
                     scm {
                       git {
                         remote {
-                          url('https://github.com/sagi-l/simple_flask_app.git')
+                          url('https://github.com/sagi-l/ci-dashboard.git')
                         }
                         branch('main')
                       }
