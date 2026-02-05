@@ -52,8 +52,8 @@ controller:
     - blueocean
     - job-dsl
     - github
-    - pipeline-stage-view 
-    
+    - pipeline-stage-view
+
   startupProbe:
     httpGet:
       path: /
@@ -137,10 +137,14 @@ controller:
                       username: ${github-creds-username}
                       password: ${github-creds-password}
                       description: "GitHub credentials"
+
       jobs.yaml: |
         jobs:
           - script: >
               pipelineJob('ci-dashboard') {
+                properties {
+                  disableConcurrentBuilds()
+                }
                 triggers {
                   githubPush()
                 }
