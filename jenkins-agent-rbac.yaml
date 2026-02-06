@@ -5,8 +5,37 @@ metadata:
   namespace: jenkins-agents
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/log", "pods/exec"]
-    verbs: ["create", "delete", "get", "list", "watch"]
+    resources: ["pods"]
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - watch
+  
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs:
+      - get
+      - list
+  
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs:
+      - create
+  
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs:
+      - get
+  
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs:
+      - create
+      - patch
+      - update
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
