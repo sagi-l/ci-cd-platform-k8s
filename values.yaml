@@ -169,7 +169,7 @@ agent:
 
 ## RBAC & Service Account
 rbac:
-  create: true
+  create: false
 
 serviceAccount:
   create: true
