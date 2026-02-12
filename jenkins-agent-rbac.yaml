@@ -4,38 +4,43 @@ metadata:
   name: jenkins-agent-manager
   namespace: jenkins-agents
 rules:
+  # Rule 1: Manage pods
   - apiGroups: [""]
     resources: ["pods"]
     verbs:
-      - create
-      - delete
-      - get
-      - list
-      - watch
+      - create   
+      - delete   
+      - get      
+      - list     
+      - watch    
   
+  # Rule 2: Read pod logs
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs:
-      - get
-      - list
+      - get      
+      - list     
   
+  # Rule 3: Execute commands in pods (REQUIRED for sh steps!)
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs:
-      - create
+      - create   
   
+  # Rule 4: Read secrets
   - apiGroups: [""]
     resources: ["secrets"]
     verbs:
-      - get
+      - get      # Read secret data (for dockerhub-creds, github-creds, etc.)
+      # NO create/delete/update - Jenkins only reads secrets
   
+  # Rule 5: Create Kubernetes events
   - apiGroups: [""]
     resources: ["events"]
     verbs:
-      - create
-      - patch
-      - update
-
+      - create  
+      - patch    
+      - update  
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -45,7 +50,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: jenkins
-    namespace: jenkins
+    namespace: jenkins  # Jenkins controller is in jenkins namespace
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
