@@ -4,7 +4,7 @@ controller:
   image:
     registry: docker.io
     repository: jenkins/jenkins
-    tag: 2.528.3-jdk21
+    tag: 2.541.1-lts-jdk21
     pullPolicy: IfNotPresent
   serviceType: ClusterIP
 
@@ -53,17 +53,20 @@ controller:
     - job-dsl
     - github
     - pipeline-stage-view
+    - role-strategy
+    - audit-trail
+    - antisamy-markup-formatter
 
   startupProbe:
     httpGet:
-      path: /
+      path: /login
       port: 8080
     failureThreshold: 60
     periodSeconds: 10
 
   livenessProbe:
     httpGet:
-      path: /
+      path: /login
       port: 8080
     initialDelaySeconds: 180
     periodSeconds: 30
@@ -110,15 +113,41 @@ controller:
                       - name: "jnlp"
                         image: "jenkins/inbound-agent:3256.v88a_f6e922152-1-jdk21"
                         workingDir: "/home/jenkins/agent"
+                        resourceRequestCpu: "250m"
+                        resourceRequestMemory: "256Mi"
+                        resourceLimitCpu: "500m"
+                        resourceLimitMemory: "512Mi"
                       - name: "buildkitd"
                         image: "moby/buildkit:v0.19.0"
                         privileged: true
                         args: "--addr unix:///run/buildkit/buildkitd.sock"
+                        resourceRequestCpu: "500m"
+                        resourceRequestMemory: "512Mi"
+                        resourceLimitCpu: "2"
+                        resourceLimitMemory: "2Gi"
                       - name: "buildctl"
                         image: "moby/buildkit:v0.19.0"
                         command: "sleep"
                         args: "infinity"
                         workingDir: "/home/jenkins/agent"
+                        resourceRequestCpu: "250m"
+                        resourceRequestMemory: "256Mi"
+                        resourceLimitCpu: "1"
+                        resourceLimitMemory: "1Gi"
+
+      security.yaml: |
+        jenkins:
+          securityRealm:
+            local:
+              allowsSignup: false
+          authorizationStrategy:
+            loggedInUsersCanDoAnything:
+              allowAnonymousRead: false
+        security:
+          apiToken:
+            creationOfLegacyTokenEnabled: false
+            tokenGenerationOnCreationEnabled: false
+            usageStatisticsEnabled: true
 
       credentials.yaml: |
         credentials:
@@ -156,6 +185,11 @@ controller:
                           url('https://github.com/sagi-l/ci-dashboard.git')
                         }
                         branch('main')
+                        extensions {
+                          messageExclusion {
+                            excludedMessage('.*\\[skip ci\\].*')
+                          }
+                        }
                       }
                     }
                     scriptPath('Jenkinsfile')
@@ -169,7 +203,7 @@ agent:
 
 ## RBAC & Service Account
 rbac:
-  create: false
+  create: true
 
 serviceAccount:
   create: true
