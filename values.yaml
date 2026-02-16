@@ -56,6 +56,7 @@ controller:
     - role-strategy
     - audit-trail
     - antisamy-markup-formatter
+    - prometheus
 
   startupProbe:
     httpGet:
@@ -86,7 +87,7 @@ controller:
   ## Jenkins Configuration as Code
   JCasC:
     enabled: true
-    defaultConfig: false   # <<< THIS IS THE CRITICAL LINE
+    defaultConfig: false   # <<< THIS IS A CRITICAL LINE
     configScripts:
       kubernetes-cloud.yaml: |
         jenkins:
@@ -166,6 +167,12 @@ controller:
                       username: ${github-creds-username}
                       password: ${github-creds-password}
                       description: "GitHub credentials"
+
+      prometheus.yaml: |
+        unclassified:
+          prometheusConfiguration:
+            useAuthenticatedEndpoint: true
+            defaultNamespace: "monitoring"
 
       jobs.yaml: |
         jobs:
