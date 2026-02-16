@@ -173,6 +173,15 @@ controller:
           prometheusConfiguration:
             useAuthenticatedEndpoint: true
             defaultNamespace: "monitoring"
+            collectDiskUsage: true
+            countAbortedBuilds: true
+            countFailedBuilds: true
+            countNotBuiltBuilds: true
+            countSuccessfulBuilds: true
+            countUnstableBuilds: true
+            fetchTestResults: true
+            jobAttributeName: "jenkins_job"
+            processingDisabledBuilds: false
 
       jobs.yaml: |
         jobs:
