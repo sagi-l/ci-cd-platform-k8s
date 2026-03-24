@@ -8,7 +8,6 @@ controller:
     pullPolicy: IfNotPresent
   serviceType: ClusterIP
 
-  ## IMPORTANT: disable inbound TCP agents correctly
   agentListenerEnabled: false
 
   admin:
@@ -16,7 +15,6 @@ controller:
     userKey: jenkins-admin-user
     passwordKey: jenkins-admin-password
 
-  ## Mount the dockerhub secret into Jenkins
   additionalExistingSecrets:
     - name: dockerhub-creds
       keyName: username
@@ -83,11 +81,15 @@ controller:
     failureThreshold: 10
     timeoutSeconds: 5
 
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostName: jenkins.cicd-lab.dev
+    annotations: {}
 
-  ## Jenkins Configuration as Code
   JCasC:
     enabled: true
-    defaultConfig: false   # <<< THIS IS A CRITICAL LINE
+    defaultConfig: false
     configScripts:
       kubernetes-cloud.yaml: |
         jenkins:
