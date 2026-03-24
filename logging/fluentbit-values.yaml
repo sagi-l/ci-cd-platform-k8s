@@ -1,0 +1,45 @@
+resources:
+  requests:
+    cpu: "50m"
+    memory: "64Mi"
+  limits:
+    cpu: "100m"
+    memory: "128Mi"
+
+config:
+  outputs: |
+    [OUTPUT]
+        Name es
+        Match kube.*
+        Host elasticsearch-master
+        Port 9200
+        HTTP_User elastic
+        HTTP_Passwd ${FLUENT_ELASTICSEARCH_PASSWORD}
+        TLS On
+        TLS.Verify Off
+        Logstash_Format On
+        Logstash_Prefix kube
+        Suppress_Type_Name On
+        Retry_Limit False
+        storage.total_limit_size 1G
+
+    [OUTPUT]
+        Name es
+        Match host.*
+        Host elasticsearch-master
+        Port 9200
+        HTTP_User elastic
+        HTTP_Passwd ${FLUENT_ELASTICSEARCH_PASSWORD}
+        TLS On
+        TLS.Verify Off
+        Logstash_Format On
+        Logstash_Prefix node
+        Suppress_Type_Name On
+        Retry_Limit False
+
+env:
+  - name: FLUENT_ELASTICSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: elasticsearch-master-credentials
+        key: password
