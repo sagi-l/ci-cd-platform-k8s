@@ -1,0 +1,223 @@
+## Jenkins Controller
+controller:
+  jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+  image:
+    registry: docker.io
+    repository: jenkins/jenkins
+    tag: 2.541.1-lts-jdk21
+    pullPolicy: IfNotPresent
+  serviceType: ClusterIP
+
+  agentListenerEnabled: false
+
+  admin:
+    existingSecret: jenkins-admin-credentials
+    userKey: jenkins-admin-user
+    passwordKey: jenkins-admin-password
+
+  additionalExistingSecrets:
+    - name: dockerhub-creds
+      keyName: username
+    - name: dockerhub-creds
+      keyName: password
+    - name: github-creds
+      keyName: username
+    - name: github-creds
+      keyName: password
+
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+  persistence:
+    enabled: true
+    size: 10Gi
+
+  runAsUser: 1000
+  fsGroup: 1000
+
+  installPluginsTimeout: 20
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+    - credentials
+    - blueocean
+    - job-dsl
+    - github
+    - pipeline-stage-view
+    - role-strategy
+    - audit-trail
+    - antisamy-markup-formatter
+    - prometheus
+    - github-branch-source
+
+  startupProbe:
+    httpGet:
+      path: /login
+      port: 8080
+    failureThreshold: 60
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /login
+      port: 8080
+    initialDelaySeconds: 180
+    periodSeconds: 30
+    failureThreshold: 10
+    timeoutSeconds: 5
+
+  readinessProbe:
+    httpGet:
+      path: /login
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    failureThreshold: 10
+    timeoutSeconds: 5
+
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostName: jenkins.cicd-lab.dev
+    annotations: {}
+
+  JCasC:
+    enabled: true
+    defaultConfig: false
+    configScripts:
+      kubernetes-cloud.yaml: |
+        jenkins:
+          clouds:
+            - kubernetes:
+                name: "kubernetes"
+                namespace: "jenkins-agents"
+                jenkinsUrl: "http://jenkins.jenkins.svc.cluster.local:8080"
+                webSocket: true
+                containerCap: 10
+                waitForPodSec: 120
+                podRetention: never
+                templates:
+                  - name: "buildkit-agent"
+                    namespace: "jenkins-agents"
+                    serviceAccount: "jenkins"
+                    idleMinutes: 0.5
+                    volumes:
+                      - emptyDirVolume:
+                          mountPath: "/run/buildkit"
+                      - emptyDirVolume:
+                          mountPath: "/home/jenkins/agent"
+                    containers:
+                      - name: "jnlp"
+                        image: "jenkins/inbound-agent:3256.v88a_f6e922152-1-jdk21"
+                        workingDir: "/home/jenkins/agent"
+                        resourceRequestCpu: "250m"
+                        resourceRequestMemory: "256Mi"
+                        resourceLimitCpu: "500m"
+                        resourceLimitMemory: "512Mi"
+                      - name: "buildkitd"
+                        image: "moby/buildkit:v0.19.0"
+                        privileged: true
+                        args: "--addr unix:///run/buildkit/buildkitd.sock"
+                        resourceRequestCpu: "500m"
+                        resourceRequestMemory: "512Mi"
+                        resourceLimitCpu: "2"
+                        resourceLimitMemory: "2Gi"
+                      - name: "buildctl"
+                        image: "moby/buildkit:v0.19.0"
+                        command: "sleep"
+                        args: "infinity"
+                        workingDir: "/home/jenkins/agent"
+                        resourceRequestCpu: "250m"
+                        resourceRequestMemory: "256Mi"
+                        resourceLimitCpu: "1"
+                        resourceLimitMemory: "1Gi"
+
+      security.yaml: |
+        jenkins:
+          securityRealm:
+            local:
+              allowsSignup: false
+          authorizationStrategy:
+            loggedInUsersCanDoAnything:
+              allowAnonymousRead: false
+        security:
+          apiToken:
+            creationOfLegacyTokenEnabled: false
+            tokenGenerationOnCreationEnabled: false
+            usageStatisticsEnabled: true
+
+      credentials.yaml: |
+        credentials:
+          system:
+            domainCredentials:
+              - credentials:
+                  - usernamePassword:
+                      scope: GLOBAL
+                      id: "dockerhub-creds"
+                      username: ${dockerhub-creds-username}
+                      password: ${dockerhub-creds-password}
+                      description: "Docker Hub credentials"
+                  - usernamePassword:
+                      scope: GLOBAL
+                      id: "github-creds"
+                      username: ${github-creds-username}
+                      password: ${github-creds-password}
+                      description: "GitHub credentials"
+
+      prometheus.yaml: |
+        unclassified:
+          prometheusConfiguration:
+            useAuthenticatedEndpoint: true
+            defaultNamespace: "monitoring"
+            collectDiskUsage: true
+            countAbortedBuilds: true
+            countFailedBuilds: true
+            countNotBuiltBuilds: true
+            countSuccessfulBuilds: true
+            countUnstableBuilds: true
+            fetchTestResults: true
+            jobAttributeName: "jenkins_job"
+            processingDisabledBuilds: false
+
+      jobs.yaml: |
+        jobs:
+          - script: >
+              multibranchPipelineJob('ci-dashboard') {
+                branchSources {
+                  github {
+                    id('ci-dashboard-src')
+                    repoOwner('sagi-l')
+                    repository('ci-dashboard')
+                    scanCredentialsId('github-creds')
+                    includes('main dev')
+                  }
+                }
+                factory {
+                  workflowBranchProjectFactory {
+                    scriptPath('Jenkinsfile')
+                  }
+                }
+                orphanedItemStrategy {
+                  discardOldItems {
+                    numToKeep(10)
+                  }
+                }
+              }
+
+## Helm-managed agents — DISABLED
+agent:
+  enabled: false
+
+## RBAC & Service Account
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
